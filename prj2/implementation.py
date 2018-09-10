@@ -1,5 +1,5 @@
 import tensorflow as tf
-
+# import string
 BATCH_SIZE = 128
 MAX_WORDS_IN_REVIEW = 100  # Maximum length of a review to consider
 EMBEDDING_SIZE = 50  # Dimensions for each word vector
@@ -32,7 +32,15 @@ def preprocess(review):
         - word find/replace
     RETURN: the preprocessed review in string form.
     """
-
+    processed_string = review.lower()
+    punctuation = '!"#$%&()*+,-./:;<=>?@[\\]^_`{|}~\t\n'
+    table = processed_string.maketrans("", "", punctuation)
+    processed_string = processed_string.translate(table)
+    processed_string = processed_string.split()
+    processed_review = []
+    for item in processed_string:
+        if item not in stop_words:
+            processed_review.append(item)
     return processed_review
 
 
@@ -54,3 +62,14 @@ def define_graph():
     """
 
     return input_data, labels, dropout_keep_prob, optimizer, Accuracy, loss
+
+
+if __name__ == "__main__":
+    """
+    for test only
+    """
+    # test preprocess
+    # with open('./data/train/pos/2_7.txt', "r") as f:
+    #     review = f.read()
+    # print("\n", review, "\n")
+    # print(preprocess(review))
