@@ -1,4 +1,9 @@
-/prj2/data/
+/prj2/__pycache__
+/prj2/.vscode
+/prj2/checkpoints
+/prj2/data
+/prj2/tensorboard
 /prj2/glove.6B.50d.txt
 /prj2/Assignment2.zip
-prj2/embeddings.pkl
+/prj2/embeddings.pkl
+

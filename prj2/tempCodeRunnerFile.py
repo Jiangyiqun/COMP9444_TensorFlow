@@ -1,1 +1,1 @@
-glove.6B.50d
+MAX_WORDS_IN_REVIEW
