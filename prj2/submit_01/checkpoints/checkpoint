@@ -1,0 +1,6 @@
+model_checkpoint_path: "trained_model.ckpt-5600"
+all_model_checkpoint_paths: "trained_model.ckpt-5200"
+all_model_checkpoint_paths: "trained_model.ckpt-5300"
+all_model_checkpoint_paths: "trained_model.ckpt-5400"
+all_model_checkpoint_paths: "trained_model.ckpt-5500"
+all_model_checkpoint_paths: "trained_model.ckpt-5600"

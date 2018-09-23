@@ -4,12 +4,7 @@ BATCH_SIZE = 128
 MAX_WORDS_IN_REVIEW = 100  # Maximum length of a review to consider
 EMBEDDING_SIZE = 50  # Dimensions for each word vector
 NUM_CLASS = 2   # number of classes
-NUM_HIDDEN_UNIT = 32   # number of hidden unit
-L_RATE = 0.01  # learning rate
-CELL_MODEL = "LSTM"
-# CELL_MODEL = "GRU"
-# CELL_MODEL = "BIO"
-
+NUM_HIDDEN_UNIT = 128   # number of hidden unit
 
 stop_words = set({'ourselves', 'hers', 'between', 'yourself', 'again',
                   'there', 'about', 'once', 'during', 'out', 'very', 'having',
@@ -67,88 +62,95 @@ def define_graph():
     You must return, in the following order, the placeholders/tensors for;
     RETURNS: input, labels, optimizer, accuracy and loss
     """
-    # tf.reset_default_graph()
-    # shape: BATCH_SIZE * MAX_WORDS_IN_REVIEW * EMBEDDING_SIZE
+    # Input placeholder: name="input_data"
+    # BATCH_SIZE * MAX_WORDS_IN_REVIEW * EMBEDDING_SIZE
     input_data = tf.placeholder(
             dtype=tf.float32,
             shape=[BATCH_SIZE, MAX_WORDS_IN_REVIEW, EMBEDDING_SIZE],
             name="input_data")
-    # shape: BATCH_SIZE * NUM_CLASS
+    # labels placeholder: name="labels"
+    # BATCH_SIZE * NUM_CLASS
     labels = tf.placeholder(
             dtype=tf.float32,
             shape=[BATCH_SIZE, NUM_CLASS],
             name="labels")
-    # shape: Unknown
+    # dropout placeholder
     dropout_keep_prob = tf.placeholder_with_default(
             1.0,
             shape = (),
             name='dropout_keep_prob')
 
-    if CELL_MODEL == "LSTM":
-        # output size: NUM_HIDDEN_UNIT
-        cell = tf.contrib.rnn.BasicLSTMCell(NUM_HIDDEN_UNIT)
-        # cell = tf.contrib.rnn.GRUCell(NUM_HIDDEN_UNIT)
-        cell = tf.contrib.rnn.DropoutWrapper(
-                cell=cell,
-                output_keep_prob=dropout_keep_prob)
-        # outputs shape: BATCH_SIZE * MAX_WORDS_IN_REVIEW * NUM_HIDDEN_UNIT
-        # state shape: BATCH_SIZE * NUM_HIDDEN_UNIT
-        outputs, state = tf.nn.dynamic_rnn(
-                cell = cell, 
-                inputs = input_data,
-                dtype=tf.float32)
-        # shape: BATCH_SIZE * NUM_HIDDEN_UNIT
-        last_output = state[1]
-        # shape NUM_HIDDEN_UNIT * NUM_CLASS
-        weight = tf.Variable(tf.truncated_normal(
-                [NUM_HIDDEN_UNIT, NUM_CLASS]))
-    elif CELL_MODEL == "GRU":
-        cell = tf.contrib.rnn.GRUCell(NUM_HIDDEN_UNIT)
-        cell = tf.contrib.rnn.DropoutWrapper(
-                cell=cell,
-                output_keep_prob=dropout_keep_prob)
-        outputs, state = tf.nn.dynamic_rnn(
-                cell = cell, 
-                inputs = input_data,
-                dtype=tf.float32)
-        last_output = tf.unstack(
-                tf.transpose(outputs, [1,0,2]))[-1]
-        # shape NUM_HIDDEN_UNIT * NUM_CLASS
-        weight = tf.Variable(tf.truncated_normal(
-                [NUM_HIDDEN_UNIT, NUM_CLASS]))
-    else:           # BIO
-        cell_fw = tf.contrib.rnn.BasicLSTMCell(NUM_HIDDEN_UNIT)
-        cell_bw = tf.contrib.rnn.BasicLSTMCell(NUM_HIDDEN_UNIT)
-        cell_fw = tf.contrib.rnn.DropoutWrapper(
-                cell=cell_fw,
-                output_keep_prob=dropout_keep_prob)
-        cell_bw = tf.contrib.rnn.DropoutWrapper(
-                cell=cell_bw,
-                output_keep_prob=dropout_keep_prob)
-        (output_fw, output_bw), state = tf.nn.bidirectional_dynamic_rnn(
-                cell_fw = cell_fw,
-                cell_bw = cell_bw,
-                inputs = input_data,
-                dtype = tf.float32)
-        outputs = tf.concat((output_fw, output_bw),2)
-        last_output = outputs[:,-1,:]
-        # shape NUM_HIDDEN_UNIT * NUM_CLASS
-        weight = tf.Variable(tf.truncated_normal(
-                    [NUM_HIDDEN_UNIT * 2, NUM_CLASS]))
+    # define RNN
+    # weights = {
+    #     'in': tf.Variable(tf.random_normal(
+    #                 [MAX_WORDS_IN_REVIEW, NUM_HIDDEN_UNIT])),
+    #     'out': tf.Variable(tf.random_normal(
+    #                 [NUM_HIDDEN_UNIT, NUM_CLASS]))
+    # }
+    # biases = {
+    #     'in': tf.Variable(tf.constant(0.1, shape=[NUM_HIDDEN_UNIT, ])),
+    #     'out': tf.Variable(tf.constant(0.1, shape=[NUM_CLASS, ]))
+    # }        
+    # input layer
+    # input_data_2D = tf.reshape(input_data, [-1, EMBEDDING_SIZE])
+    # input_data_2D = tf.matmul(
+    #         input_data_2D,
+    #         weights['in']) + biases['in']
+    # input_data_3D = tf.reshape(input_data_2D,
+    #         [-1, MAX_WORDS_IN_REVIEW, NUM_HIDDEN_UNIT])
 
-    # shape ? * NUM_CLASS
+    # hidden layer
+    # cell = tf.nn.rnn_cell.BasicLSTMCell(
+    #         NUM_HIDDEN_UNIT,
+    #         forget_bias=1.0,
+    #         state_is_tuple=True)
+    # init_state = cell.zero_state(BATCH_SIZE, dtype=tf.float32)
+    # outputs, state = tf.nn.dynamic_rnn(
+    #         cell,
+    #         input_data_3D,
+    #         initial_state=init_state,
+    #         time_major=False)
+    # # output layer
+    # outputs = tf.unstack(tf.transpose(outputs, [1,0,2]))
+    # logits = tf.matmul(outputs[-1], weights['out']) + biases['out'] 
+    weight = tf.Variable(tf.truncated_normal(
+                [NUM_HIDDEN_UNIT, NUM_CLASS]))
     bias = tf.Variable(tf.constant(0.1, shape=[NUM_CLASS]))
-    # shape: BATCH_SIZE* NUM_CLASS
-    logits = (tf.matmul(last_output, weight) + bias)
 
-    # shape: BATCH_SIZE * ?
-    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
+    cell = tf.contrib.rnn.BasicLSTMCell(NUM_HIDDEN_UNIT)
+    cell = tf.contrib.rnn.DropoutWrapper(
+            cell=cell,
+            output_keep_prob=dropout_keep_prob)
+    
+    outputs, _ = tf.nn.dynamic_rnn(cell, input_data, dtype=tf.float32)
+    outputs = tf.transpose(outputs, [1, 0, 2])
+    outputs = tf.gather(outputs, int(outputs.get_shape()[0]) - 1)
+    
+    logits = (tf.matmul(outputs, weight) + bias)
+
+    # loss tensor: name="loss"
+    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
                 logits=logits,
                 labels=labels),
-    loss = tf.reduce_mean(cross_entropy, name='loss')
-    optimizer = tf.train.AdamOptimizer(learning_rate=L_RATE).minimize(loss)
-    # shape: BATCH_SIZE * ?
+                name='loss')
+    # optimizer
+    optimizer = tf.train.AdamOptimizer().minimize(loss)
+    # accuracy tensor: name="accuracy"
     correct_pred = tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1))
-    correct_pred = tf.cast(correct_pred, tf.float32)
-    Accuracy = tf.reduce_mean(correct_pred, name="accuracy")
+    Accuracy = tf.reduce_mean(
+            tf.cast(correct_pred, tf.float32),
+            name="accuracy")
+
+
     return input_data, labels, dropout_keep_prob, optimizer, Accuracy, loss
+
+
+if __name__ == "__main__":
+    """
+    for test only
+    """
+    # test preprocess
+    # with open('./data/train/pos/2_7.txt', "r") as f:
+    #     review = f.read()
+    # print("\n", review, "\n")
+    # print(preprocess(review))
